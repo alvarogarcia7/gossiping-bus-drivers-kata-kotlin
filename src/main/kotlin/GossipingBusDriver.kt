@@ -4,47 +4,53 @@ import java.util.stream.IntStream.range
 
 data class Route(val stops: List<Int>)
 
-data class Driver(val name: String, val route: Route, var position: Int = 0) {
-    val gossips: MutableSet<String> = mutableSetOf()
+data class Driver(val name: String, val route: Route) {
+    private val gossips: MutableSet<String> = mutableSetOf()
+    private var position: Int = 0
 
     init {
         this.gossips.add(name)
     }
 
-    fun moveOne() {
+    fun driveToNext() {
         this.position = (position + 1) % this.route.stops.size
     }
 
-    fun isAt(i: Int): Boolean {
-        return this.route.stops[position] == i
+    fun learnAbout(gossips: Set<String>) {
+        this.gossips.addAll(gossips)
     }
 
-    fun positionX(): Int {
-        return this.route.stops[this.position]
+    fun knowsAbout(): Set<String> {
+        return this.gossips.toSet()
     }
+
+    fun stoppedWhere(it: Driver): Boolean {
+        return at() == it.at()
+    }
+
+    private fun at() = this.route.stops[this.position]
 }
 
 object Gossipper {
     fun find(vararg drivers: Driver): Int {
         for (i in range(0, 480)) {
-            drivers.map { it ->
-                val gossipsAtThisStep =
-                    drivers.filter { driver -> driver.isAt(it.positionX()) }.flatMap { it.gossips }.toSet()
-                it.gossips.addAll(gossipsAtThisStep)
+            drivers.map { driver ->
+                val atTheSameStation = drivers.filter { it -> it.stoppedWhere(driver) }
+                val gossipsAtThisStep = atTheSameStation.flatMap { it.knowsAbout() }.toSet()
+                driver.learnAbout(gossipsAtThisStep)
             }
             drivers.map {
-                it.moveOne()
+                it.driveToNext()
             }
-            if (finished(drivers)) {
+            if (allGossipsDistributedAmong(drivers)) {
                 return i + 1
             }
         }
         return -1
     }
 
-    private fun finished(drivers: Array<out Driver>): Boolean {
-        val size = drivers.filter { driver -> driver.gossips.size == drivers.size }.size
-        return size == drivers.size
+    private fun allGossipsDistributedAmong(drivers: Array<out Driver>): Boolean {
+        return drivers.all { driver -> driver.knowsAbout().size == drivers.size }
     }
 
 }
